@@ -1,6 +1,6 @@
 $vmlist=@{}; $VmReport = @();
 
-$VmReportlocation = "C:\Reports\Azure\Azure_Inventory.csv"
+$VmReportlocation = "C:\Reports\Azure\Azure_Virtual_Machine_Inventory.csv"
 
 #Virtual Machine Inventory Tag Arrays
 $SorumluArray = @("Owner","owner","Sorumlu","Sahip")
@@ -15,16 +15,18 @@ $SAPArray =@('SAP','SAP ID','sapid','Sapid','SAPId','SAPID')
 $UygulamaArray = @('Application','application','App','app','Application Name','application name','Uygulama','uygulama',
                     'Application ','application ','App ','app ','Application Name ','application name ','Uygulama ','uygulama ')
 
-$subscriptions = Get-AzSubscription #Get all subscriptions
+$subscriptions = Get-AzSubscription | Where-Object {$_.State -eq "Enabled"} | Sort-Object -Property Name #Get all active subscriptions
 
 ForEach($subscription in $subscriptions)
 {
     $Null=Set-AzContext -SubscriptionId $subscription #Change current subscription and put a null output
-    $resourceGroups = Get-AzResourceGroup #Get resource groups for current subscription
+    $resourceGroups = Get-AzResourceGroup | Sort-Object -Property ResourceGroupName #Get resource groups for current subscription
 
     ForEach($resourceGroup in $resourceGroups)
-    {
-        $vms = Get-AzVm -resourceGroupName $resourceGroup.resourceGroupName #Get vms for current resource group
+    {     
+        $nics = Get-AzNetworkInterface -resourceGroupName $resourceGroup.resourceGroupName | Where-Object {$_.VirtualMachine -ne $null} | Sort-Object -Property VirtualMachine#Get Network Interface which are being used by a vm
+        
+        $vms = Get-AzVm -resourceGroupName $resourceGroup.resourceGroupName | Sort-Object -Property Name #Get vms for current resource group
 
         ForEach($vm in $vms)
         {
@@ -65,9 +67,7 @@ ForEach($subscription in $subscriptions)
                 else {$key_name=$keylist[$i]}
                 $vmlist[$vm.Name]["tags"][$key_name] =$valuelist[$i]
             }
-
-            $nics = Get-AzNetworkInterface | Where-Object{ $_.VirtualMachine -NE $null} #Get Network Interface which are being used by a vm
-
+            
             foreach ($nic in $nics) #Put Network Interface properties of the vm into its nic properties array
             {
                 if($nic.VirtualMachine.id -eq $vm.Id){$vmlist[$vm.Name]["nic"] = $nic; break}
